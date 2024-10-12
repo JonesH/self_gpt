@@ -13,6 +13,7 @@ from sgpt.function import get_openai_schemas
 from sgpt.handlers.chat_handler import ChatHandler
 from sgpt.handlers.default_handler import DefaultHandler
 from sgpt.handlers.repl_handler import ReplHandler
+from sgpt.handlers.self_gpt import SelfGPT
 from sgpt.llm_functions.init_functions import install_functions as inst_funcs
 from sgpt.role import DefaultRoles, SystemRole
 from sgpt.utils import (
@@ -102,6 +103,12 @@ def main(
     repl: str = typer.Option(
         None,
         help="Start a REPL (Read–eval–print loop) session.",
+        rich_help_panel="Chat Options",
+    ),
+    self: str = typer.Option(
+        None,
+        "--self",
+        help="Run the self aware repl.",
         rich_help_panel="Chat Options",
     ),
     show_chat: str = typer.Option(
@@ -214,6 +221,16 @@ def main(
             top_p=top_p,
             caching=cache,
             functions=function_schemas,
+        )
+
+    if self:
+        SelfGPT(self, md).handle(
+            init_prompt=prompt,
+            model = model,
+            temperature = temperature,
+            top_p = top_p,
+            caching = cache,
+            functions = function_schemas,
         )
 
     if chat:
