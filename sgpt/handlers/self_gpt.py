@@ -35,7 +35,7 @@ class SelfGPT(ChatHandler):
         Available roles: {list(self.roles.keys())}
         Available functions: {list(self.functions.keys())}
         Handlers you can use: {[handler.__name__ for handler in self.handlers]}
-        Source code: {}
+        Source code:
         """
         role = SystemRole("SelfGPT", role_description)
         if not role._exists:
