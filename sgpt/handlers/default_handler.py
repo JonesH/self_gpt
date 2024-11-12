@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Dict, List
 
 from ..config import cfg
 from ..role import SystemRole
@@ -14,7 +13,7 @@ class DefaultHandler(Handler):
         super().__init__(role, markdown)
         self.role = role
 
-    def make_messages(self, prompt: str) -> List[Dict[str, str]]:
+    def make_messages(self, prompt: str) -> list[dict[str, str]]:
         messages = [
             {"role": "system", "content": self.role.role},
             {"role": "user", "content": prompt},

@@ -1,8 +1,9 @@
 import importlib.util
 import sys
 from abc import ABCMeta
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any
 
 from .config import cfg
 
@@ -58,7 +59,7 @@ def get_function(name: str) -> Callable[..., Any]:
     raise ValueError(f"Function {name} not found")
 
 
-def get_openai_schemas() -> List[Dict[str, Any]]:
+def get_openai_schemas() -> list[dict[str, Any]]:
     transformed_schemas = []
     for function in functions:
         schema = {

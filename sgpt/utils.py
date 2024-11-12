@@ -1,8 +1,9 @@
 import os
 import platform
 import shlex
+from collections.abc import Callable
 from tempfile import NamedTemporaryFile
-from typing import Any, Callable
+from typing import Any
 
 import typer
 from click import BadParameter, UsageError
@@ -25,7 +26,7 @@ def get_edited_prompt() -> str:
     # This will write text to file using $EDITOR.
     os.system(f"{editor} {file_path}")
     # Read file when editor is closed.
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         output = file.read()
     os.remove(file_path)
     if not output:

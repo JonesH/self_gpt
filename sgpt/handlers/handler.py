@@ -1,6 +1,7 @@
 import json
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import Any
 
 from ..cache import Cache
 from ..config import cfg
@@ -53,12 +54,12 @@ class Handler:
             else TextPrinter(self.color)
         )
 
-    def make_messages(self, prompt: str) -> List[Dict[str, str]]:
+    def make_messages(self, prompt: str) -> list[dict[str, str]]:
         raise NotImplementedError
 
     def handle_function_call(
         self,
-        messages: List[dict[str, Any]],
+        messages: list[dict[str, Any]],
         name: str,
         arguments: str,
     ) -> Generator[str, None, None]:
@@ -88,8 +89,8 @@ class Handler:
         model: str,
         temperature: float,
         top_p: float,
-        messages: List[Dict[str, Any]],
-        functions: Optional[List[Dict[str, str]]],
+        messages: list[dict[str, Any]],
+        functions: list[dict[str, str]] | None,
     ) -> Generator[str, None, None]:
         name = arguments = ""
         is_shell_role = self.role.name == DefaultRoles.SHELL.value
@@ -149,7 +150,7 @@ class Handler:
         temperature: float,
         top_p: float,
         caching: bool,
-        functions: Optional[List[Dict[str, str]]] = None,
+        functions: list[dict[str, str]] | None = None,
         **kwargs: Any,
     ) -> str:
         disable_stream = cfg.get("DISABLE_STREAMING") == "true"

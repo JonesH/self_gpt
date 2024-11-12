@@ -1,9 +1,8 @@
 from datetime import datetime
 
 import typer
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk, ChoiceDelta
 from openai.types.chat.chat_completion_chunk import Choice as StreamChoice
-from openai.types.chat.chat_completion_chunk import ChoiceDelta
 from typer.testing import CliRunner
 
 from sgpt import main

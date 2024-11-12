@@ -75,7 +75,7 @@ class Config(dict):  # type: ignore
             file.write(string_config)
 
     def _read(self) -> None:
-        with open(self.config_path, "r", encoding="utf-8") as file:
+        with open(self.config_path, encoding="utf-8") as file:
             for line in file:
                 if line.strip() and not line.startswith("#"):
                     key, value = line.strip().split("=", 1)

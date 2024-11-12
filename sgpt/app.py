@@ -183,9 +183,9 @@ def main(
         try:
             # Switch to stdin for interactive input.
             if os.name == "posix":
-                sys.stdin = open("/dev/tty", "r")
+                sys.stdin = open("/dev/tty")
             elif os.name == "nt":
-                sys.stdin = open("CON", "r")
+                sys.stdin = open("CON")
         except OSError:
             # Non-interactive shell.
             pass
@@ -226,11 +226,11 @@ def main(
     if self:
         SelfGPT(self, md).handle(
             init_prompt=prompt,
-            model = model,
-            temperature = temperature,
-            top_p = top_p,
-            caching = cache,
-            functions = function_schemas,
+            model=model,
+            temperature=temperature,
+            top_p=top_p,
+            caching=cache,
+            functions=function_schemas,
         )
 
     if chat:

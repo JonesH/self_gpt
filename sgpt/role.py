@@ -4,7 +4,6 @@ from enum import Enum
 from os import getenv, pathsep
 from os.path import basename
 from pathlib import Path
-from typing import Dict, Optional
 
 import typer
 from click import BadArgumentUsage
@@ -51,7 +50,7 @@ class SystemRole:
         self,
         name: str,
         role: str,
-        variables: Optional[Dict[str, str]] = None,
+        variables: dict[str, str] | None = None,
     ) -> None:
         self.storage.mkdir(parents=True, exist_ok=True)
         self.name = name
@@ -103,7 +102,7 @@ class SystemRole:
         typer.echo(cls.get(name).role)
 
     @classmethod
-    def get_role_name(cls, initial_message: str) -> Optional[str]:
+    def get_role_name(cls, initial_message: str) -> str | None:
         if not initial_message:
             return None
         message_lines = initial_message.splitlines()

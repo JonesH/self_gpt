@@ -1,7 +1,8 @@
 import json
+from collections.abc import Callable, Generator
 from hashlib import md5
 from pathlib import Path
-from typing import Any, Callable, Generator, no_type_check
+from typing import Any, no_type_check
 
 
 class Cache:

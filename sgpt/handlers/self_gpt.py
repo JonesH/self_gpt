@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-import sys
-
-
-sys.stderr = sys.stdout
-
-from sgpt.handlers.chat_handler import ChatHandler
 import json
-from sgpt.handlers.repl_handler import ReplHandler
-from sgpt.handlers.handler import Handler
-from sgpt.role import SystemRole
+import sys
 from pathlib import Path
 from typing import Any
+
 import typer
+
+from sgpt.handlers.chat_handler import ChatHandler
+from sgpt.handlers.handler import Handler
+from sgpt.handlers.repl_handler import ReplHandler
+from sgpt.role import SystemRole
+
+sys.stderr = sys.stdout
 
 
 class SelfGPT(ChatHandler):
@@ -44,24 +44,27 @@ class SelfGPT(ChatHandler):
 
     @classmethod
     def get_role_name(cls, initial_message: str) -> str | None:
-        return 'selfgpt'
+        return "selfgpt"
 
     def _get_self_code(self) -> str:
         """Retrieves its own source code."""
+
         def print_file(path) -> str:
             code = Path(path).read_text()
-            return f'# {path}\n{code}'
+            return f"# {path}\n{code}"
 
         try:
             import sgpt
-            codes = map(print_file, Path(sgpt.__file__).parent.glob('**/*.py'))
-            return print_file(__file__) + '\n'.join(codes)
+
+            codes = map(print_file, Path(sgpt.__file__).parent.glob("**/*.py"))
+            return print_file(__file__) + "\n".join(codes)
         except Exception as e:
             return f"Error retrieving self code: {e}"
 
     def _get_current_settings(self) -> dict:
         """Retrieves current settings from the configuration."""
         from sgpt.config import cfg
+
         return dict(cfg)
 
     def _get_current_roles(self) -> dict:
@@ -74,6 +77,7 @@ class SelfGPT(ChatHandler):
     def _get_current_functions(self) -> dict:
         """Retrieves all available functions."""
         from sgpt.function import functions
+
         return {function.name: function.openai_schema for function in functions}
 
     def _get_current_handlers(self) -> list:
@@ -92,7 +96,6 @@ class SelfGPT(ChatHandler):
         if self.initiated:
             self.show_messages(self.chat_id)
 
-        full_completion = ""
         while True:
             prompt = self._get_user_input()
             if prompt == "exit()":
@@ -111,9 +114,8 @@ class SelfGPT(ChatHandler):
                 if init_prompt:
                     prompt = f"{init_prompt}\n\n\n{prompt}"
                     init_prompt = ""
-                full_completion = super().handle(prompt=prompt, **kwargs)
+                super().handle(prompt=prompt, **kwargs)
 
     def _get_user_input(self) -> str:
         """Prompts the user for input."""
         return typer.prompt(">>>", prompt_suffix=" ")
-

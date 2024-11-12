@@ -1,6 +1,7 @@
 import json
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import Any
 
 import typer
 from click import BadArgumentUsage
@@ -62,14 +63,14 @@ class ChatSession:
 
         return wrapper
 
-    def _read(self, chat_id: str) -> List[Dict[str, str]]:
+    def _read(self, chat_id: str) -> list[dict[str, str]]:
         file_path = self.storage_path / chat_id
         if not file_path.exists():
             return []
         parsed_cache = json.loads(file_path.read_text())
         return parsed_cache if isinstance(parsed_cache, list) else []
 
-    def _write(self, messages: List[Dict[str, str]], chat_id: str) -> None:
+    def _write(self, messages: list[dict[str, str]], chat_id: str) -> None:
         file_path = self.storage_path / chat_id
         json.dump(messages[-self.length :], file_path.open("w"))
 
@@ -77,14 +78,14 @@ class ChatSession:
         file_path = self.storage_path / chat_id
         file_path.unlink(missing_ok=True)
 
-    def get_messages(self, chat_id: str) -> List[str]:
+    def get_messages(self, chat_id: str) -> list[str]:
         messages = self._read(chat_id)
         return [f"{message['role']}: {message['content']}" for message in messages]
 
-    def exists(self, chat_id: Optional[str]) -> bool:
+    def exists(self, chat_id: str | None) -> bool:
         return bool(chat_id and bool(self._read(chat_id)))
 
-    def list(self) -> List[Path]:
+    def list(self) -> list[Path]:
         # Get all files in the folder.
         files = self.storage_path.glob("*")
         # Sort files by last modification time in ascending order.
@@ -165,7 +166,7 @@ class ChatHandler(Handler):
                         f'since it was initiated as "{chat_role_name}" chat.'
                     )
 
-    def make_messages(self, prompt: str) -> List[Dict[str, str]]:
+    def make_messages(self, prompt: str) -> list[dict[str, str]]:
         messages = []
         if not self.initiated:
             messages.append({"role": "system", "content": self.role.role})

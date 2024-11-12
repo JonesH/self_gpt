@@ -1,5 +1,6 @@
+
 import pytest
-from pathlib import Path
+
 from sgpt.filegptd import ChangingFile, FilesView
 
 
@@ -97,7 +98,10 @@ def test_files_view_get_file_version(files_view, tmp_path):
     files_view.record_change(file1_path, second_change)
 
     # Test retrieval of different versions
-    assert files_view.get_file_version(file1_path, 0) == ["File1 - Line 1\n", "File1 - Line 2\n"]
+    assert files_view.get_file_version(file1_path, 0) == [
+        "File1 - Line 1\n",
+        "File1 - Line 2\n",
+    ]
     assert files_view.get_file_version(file1_path, 1) == first_change
     assert files_view.get_file_version(file1_path, 2) == second_change
 
