@@ -1,11 +1,12 @@
-import asyncio
 import difflib
-from abc import abstractmethod, ABC
+import threading
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from functools import lru_cache
 from pathlib import Path
-from watchfiles import watch, Change
+
 import typer
+from watchfiles import Change, watch
+
 from sgpt.handlers.repl_handler import ReplHandler  # Import the base REPL handler
 from sgpt.role import SystemRole
 
@@ -17,8 +18,9 @@ class ChangingFile:
     file_path: Path
     original_content: list[str] = field(init=False)
     changes: list[list[str]] = field(default_factory=list)
+    _cache: dict[int, list[str]] = field(default_factory=dict, init=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """
         Initialize the ChangingFile by reading the original file content.
         """
@@ -30,7 +32,7 @@ class ChangingFile:
         Reads the content of the file and returns it as a list of lines.
         """
         if self.file_path.exists():
-            with self.file_path.open('r', encoding='utf-8') as file:
+            with self.file_path.open("r", encoding="utf-8") as file:
                 return file.readlines()
         return []
 
@@ -39,21 +41,20 @@ class ChangingFile:
         Records a change by computing the diff between the current version and new content.
         """
         current_version = self.get_current_version()
-        diff = list(difflib.unified_diff(current_version, new_content, lineterm=''))
-        print(f'{self.file_path} changed: {diff}')
-        with open('record.log', 'a') as f:
-            f.write(f'{self.file_path} changed: {diff}')
+        diff = list(difflib.unified_diff(current_version, new_content, lineterm=""))
         self.changes.append(diff)
 
-    @lru_cache
     def get_version(self, version: int) -> list[str]:
         """
         Retrieves a specific version of the file by applying the first `version` diffs.
         `version` should be between 0 (original) and len(self.changes) (current).
         """
+        if version in self._cache:
+            return self._cache[version]
         content = self.original_content
         for change in self.changes[:version]:
             content = self.apply_diff(content, change)
+        self._cache[version] = content
         return content
 
     def get_current_version(self) -> list[str]:
@@ -69,7 +70,7 @@ class ChangingFile:
         """
         return list(difflib.restore(diff, 1))
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.file_path)
 
 
@@ -82,14 +83,17 @@ class Watcher(ABC):
 @dataclass
 class FilesView:
     file_paths: list[Path]
+
     files: dict[str, ChangingFile] = field(init=False)
     observers: list[Watcher] = field(default_factory=list)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """
         Initialize FilesView with ChangingFile instances for each file.
         """
-        self.files = {str(file_path): ChangingFile(file_path) for file_path in self.file_paths}
+        self.files = {
+            str(file_path): ChangingFile(file_path) for file_path in self.file_paths
+        }
 
     def notify_observers(self) -> None:
         for observer in self.observers:
@@ -115,16 +119,15 @@ class FilesView:
             summary += f"- {path}: {len(changing_file.changes)} changes recorded\n"
         return summary
 
-    def register_observer(self, watcher: Watcher):
+    def register_observer(self, watcher: Watcher) -> None:
         self.observers.append(watcher)
 
 
 class FileWatcherREPLHandler(ReplHandler, Watcher):
-
     def notify(self) -> None:
         self.role = self._role
 
-    def __init__(self, files_view: FilesView, *args, model='gpt-4o-mini', **kwargs):
+    def __init__(self, files_view: FilesView, *args, model: str = "gpt-4o-mini", **kwargs) -> None:
         """
         Initialize with a custom system prompt containing the files' history.
         """
@@ -147,31 +150,39 @@ class FileWatcherREPLHandler(ReplHandler, Watcher):
     def _role(self) -> SystemRole:
         return SystemRole(name="FileGPT", role=self._system_prompt)
 
-    def start_repl(self):
+    def start_repl(self) -> None:
         """
         Starts the REPL with the custom system prompt including file history.
         """
-        super().handle(init_prompt="Let's start the REPL. Ask me about the watched files!", model=self.model,
-                        temperature=0.7, top_p=1.0, caching=False)
+        super().handle(
+            init_prompt=f"Let's start the REPL. Ask me about the watched files: {self._system_prompt}",
+            model=self.model,
+            temperature=0.7,
+            top_p=1.0,
+            caching=False,
+        )
+
+
+
 
 @dataclass
 class FileGPTd:
     file_paths: list[str | Path]
     files_view: FilesView = field(init=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """
         Initialize FileGPTd by setting up FilesView.
         """
-        self.file_paths = [Path.cwd() / Path(path).expanduser().resolve() for path in self.file_paths]
+        self.file_paths = [
+            Path(path).expanduser().resolve() for path in self.file_paths
+        ]
         self.files_view = FilesView(self.file_paths)
 
-
-    def monitor_files(self):
+    def monitor_files(self) -> None:
         """
-        Asynchronously monitors files for changes and updates the FilesView.
+        Synchronously monitors files for changes and updates the FilesView.
         """
-        print(f'monitoring files: {self.files_view.files.keys()}')
         for changes in watch(*self.files_view.files.keys()):
             for change_type, file_path in changes:
                 if change_type in {Change.modified, Change.added, Change.deleted}:
@@ -181,7 +192,6 @@ class FileGPTd:
         """
         Handles file changes by updating the corresponding ChangingFile instance.
         """
-        cwd = Path.cwd()
         file_path = Path(file_path)
         file_path_str = str(file_path)
 
@@ -191,19 +201,26 @@ class FileGPTd:
         # Update the ChangingFile instance with the new content
         self.files_view.record_change(file_path_str, new_content)
 
-    def start_services(self):
+    def start_services(self) -> None:
         """
-        Runs the REPL and file monitoring services concurrently.
+        Runs the REPL and file monitoring services concurrently in threads.
+        """
+        repl_thread = threading.Thread(target=self.start_repl)
+        monitor_thread = threading.Thread(target=self.monitor_files)
+
+        repl_thread.start()
+        monitor_thread.start()
+
+    def start_repl(self) -> None:
+        """
+        Starts the REPL handler in its own thread.
         """
         repl_handler = FileWatcherREPLHandler(self.files_view, markdown=True)
-        await asyncio.gather(
-            repl_handler.start_repl(),
-            self.monitor_files()
-        )
+        repl_handler.start_repl()
 
 
 @app.command()
-def start(file_paths: list[str]):
+def start(file_paths: list[str]) -> None:
     """
     Starts the FileGPTd service to monitor file changes in specified files or directories.
     """
@@ -214,9 +231,8 @@ def start(file_paths: list[str]):
     file_gptd = FileGPTd(file_paths)
     typer.echo(f"Starting FileGPTd to watch changes in: {', '.join(file_paths)}")
 
-    # Start the REPL and file monitoring asynchronously
-    asyncio.run(file_gptd.start_services())
-
+    # Start REPL and file monitoring in separate threads
+    file_gptd.start_services()
 
 
 if __name__ == "__main__":
