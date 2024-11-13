@@ -29,20 +29,22 @@ additional_kwargs = {}
 @dataclass(frozen=True)
 class AgentABC(Handler, ABC):
     class Config:
-        model: str
+        model: str = 'gpt-4o'
         name: str
         role: str
-        functions: list[str] | None = None
+        functions: list[str] | None
         temperature: float = 0.7
         top_p: float = 1.0
         caching: bool = False
+        tool_choice: str = "auto"
 
+    @classmethod
     @property
-    def config(self):
-        return self.Config()
+    def config(cls):
+        return cls.Config()
 
     def __post_init__(self) -> None:
-        super(AgentABC).__init__(self.system_role, markdown=True)
+        super().__init__(self.system_role, markdown=True)
 
     @property
     @abstractmethod
@@ -74,7 +76,9 @@ class AgentABC(Handler, ABC):
                 f for f in functions if f["function"]["name"] in self.config.functions
             ]
         additional_kwargs.update(
-            tool_choice="required", tools=functions, parallel_tool_calls=False
+            tool_choice=self.config.tool_choice,
+            tools=functions,
+            parallel_tool_calls=False
         )
 
         return self.complete(
@@ -86,21 +90,23 @@ class AgentABC(Handler, ABC):
             **additional_kwargs,
         )
 
-    def handle_with_role_and_functions(
+    def handle(
         self,
         prompt: str,
-        model: str = Config.model,
+        model: str | None = None,
         temperature: float = Config.temperature,
         top_p: float = Config.top_p,
         caching: bool = Config.caching,
         **kwargs: Any,
-    ) -> str:
+    ) -> Generator[str, None, None]:
         """
         Handles a completion with a specific role and its corresponding functions.
+        Returns plain string response to the caller.
         """
+        model = self.config.model if model is None else model
         functions = get_openai_schemas()
         messages = self.make_messages(prompt.strip())
-        generator = self.get_completion(
+        return self.get_completion(
             model=model,
             temperature=temperature,
             top_p=top_p,
@@ -109,4 +115,3 @@ class AgentABC(Handler, ABC):
             caching=caching,
             **kwargs,
         )
-        return self.printer(generator, not cfg.get("DISABLE_STREAMING") == "true")

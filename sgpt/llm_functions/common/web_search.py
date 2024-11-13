@@ -11,17 +11,18 @@ class Function(OpenAISchema):
     """
 
     query: str = Field(..., description="Search query for Tavily.")
-    max_results: int = Field(15, description="Maximum number of results to return.")
+    # max_results: int = Field(15, description="Maximum number of results to return.")
 
     class Config:
         title = "web_search"
+        max_results = 15
+        api_key: str = os.getenv("TAVILY_API_KEY")
 
     @classmethod
     def execute(
         cls,
         query: str,
-        max_results: int = 15,
-        api_key: str = os.getenv("TAVILY_API_KEY"),
+        max_results: int = Config.max_results
     ) -> str:
         """
         Execute a web search query using the Tavily API.
@@ -34,11 +35,11 @@ class Function(OpenAISchema):
         Returns:
             str: The search results in a formatted string or an error message.
         """
-        if not api_key:
+        if not cls.Config.api_key:
             return "Error: Missing API key. Please set the API key as an environment variable."
 
         try:
-            response = cls._send_request(query, max_results, api_key)
+            response = cls._send_request(query, max_results, cls.Config.api_key)
             return cls._format_results(response)
         except requests.exceptions.RequestException as e:
             return f"HTTP Request failed: {e}"
@@ -64,10 +65,10 @@ class Function(OpenAISchema):
             "query": query,
             "max_results": max_results,
             "api_key": api_key,
-            "search_depth": "basic",
+            "search_depth": "advanced",
             "topic": "general",
             "days": 7,
-            "include_answer": False,
+            "include_answer": True,
             "include_raw_content": False,
             "include_images": False,
         }
@@ -89,7 +90,13 @@ class Function(OpenAISchema):
         Returns:
             str: A formatted string of search results or a message if no results are found.
         """
+        def format_result(result) -> str:
+            head = f"{result['title']}: {result['url']}"
+            if (content := result.get('content', None)) is None:
+                return head
+            return '\n'.join([head, content])
+
         results = response.get("results", [])
         if not results:
             return "No results found."
-        return "\n".join([f"{result['title']}: {result['url']}" for result in results])
+        return "\n".join([format_result(result) for result in results])

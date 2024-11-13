@@ -63,7 +63,13 @@ DISABLED_FUNCTIONS = [
     "execute_python_code",
     "tavily_search"
 ]
-ENABLED_FUNCTIONS = []
+ENABLED_FUNCTIONS = ["execute_shell",
+                     "full_text_search",
+                     "web_search",
+                     "read_file_contents",
+                     "apply_file_changes",
+                     "self_reflect",
+                     "call_sgpt"]
 
 
 def get_openai_schemas() -> list[dict[str, Any]]:
