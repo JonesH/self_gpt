@@ -25,10 +25,9 @@ class DefaultAgent(AgentABC):
         """
         Creates a message format compatible with OpenAI chat completions.
         """
-        return [
-            {"role": "system", "content": self.config.role},
-            {"role": "user", "content": prompt},
-        ]
+        user_message = {"role": "user", "content": prompt}
+        self.conversation_history.append(user_message)
+        return self.conversation_history
 
 
 # Register this agent as the default interaction point.

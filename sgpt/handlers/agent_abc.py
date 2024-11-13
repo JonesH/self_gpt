@@ -1,13 +1,13 @@
-import operator
+import json
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Generator, Callable
+from typing import Any, Generator, Callable
 
 from openai import OpenAI
 
-from ..cache import Cache
 from ..config import cfg
-from ..function import get_openai_schemas
+from ..function import get_openai_schemas, get_function
 from ..role import SystemRole
 from .handler import Handler
 
@@ -26,8 +26,10 @@ completion: Callable[..., Any] = client.chat.completions.create
 additional_kwargs = {}
 
 
-@dataclass(frozen=True)
+@dataclass
 class AgentABC(Handler, ABC):
+    conversation_history: list[dict[str, Any]] = field(default_factory=list, init=False)
+
     class Config:
         model: str = 'gpt-4o'
         name: str
@@ -45,6 +47,7 @@ class AgentABC(Handler, ABC):
 
     def __post_init__(self) -> None:
         super().__init__(self.system_role, markdown=True)
+        self.conversation_history.append({"role": "system", "content": self.config.role})
 
     @property
     @abstractmethod
@@ -61,6 +64,88 @@ class AgentABC(Handler, ABC):
         Abstract method to create messages for the specific role and functions.
         """
         raise NotImplementedError("Must be implemented in subclass")
+
+    def get_function_schema(self) -> dict[str, Any]:
+        """
+        Returns a schema that defines the input parameters and output format.
+        This schema can be used for integration with other agents or OpenAI functions.
+        """
+        return {
+            "name": self.config.name,
+            "description": f"Agent for {self.config.role}",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path_str": {
+                        "type": "string",
+                        "description": "The prompt or message to process."
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "The prompt or message to process."
+                    },
+                    # Add additional parameters as required by your agent
+                },
+                "required": ["path_str", "prompt"],
+            }
+        }
+
+    def __call__(self, input: str) -> str:
+        """
+        Makes the agent callable as a function.
+        It processes the given input and returns the result.
+        """
+        messages = self.make_messages(input.strip())
+        generator = self.get_completion(
+            model=self.config.model,
+            temperature=self.config.temperature,
+            top_p=self.config.top_p,
+            messages=messages,
+            functions=None,  # Assuming no additional functions for simplicity
+            caching=self.config.caching,
+        )
+        return self._process_stream(generator)
+
+    def _process_stream(self, generator: Generator[str, None, None]) -> str:
+        """
+        Processes the response generator into a full response text.
+        """
+        return "".join(generator)
+
+    def handle_function_call(
+            self,
+            messages: list[dict[str, Any]],
+            name: str,
+            arguments: str,
+    ) -> Generator[str, None, None]:
+        messages.append(
+            {
+                "role": "assistant",
+                "content": "",
+                "function_call": {"name": name, "arguments": arguments},
+            }
+        )
+
+        if messages and messages[-1]["role"] == "assistant":
+            yield "\n"
+
+        dict_args = json.loads(arguments)
+        joined_args = ", ".join(f'{k}="{v}"' for k, v in dict_args.items())
+        yield f"> @FunctionCall `{name}({joined_args})` \n\n"
+
+        # Call the function
+        result = get_function(name)(**dict_args)
+
+        # Write the function output to the named pipe
+        fifo_path = f"/tmp/sgpt_function_output-{os.getpid()}"
+        os.mkfifo(fifo_path)
+        with open(fifo_path, "w") as fifo:
+            fifo.write(f"Function {name} output:\n{result}\n\n")
+
+        # Optionally show a short summary in the main conversation if needed
+        yield f"[Function {name} executed, output written to named pipe]\n"
+
+        messages.append({"role": "function", "content": result, "name": name})
 
     @Handler.cache
     def get_completion(
@@ -101,12 +186,11 @@ class AgentABC(Handler, ABC):
     ) -> Generator[str, None, None]:
         """
         Handles a completion with a specific role and its corresponding functions.
-        Returns plain string response to the caller.
         """
         model = self.config.model if model is None else model
         functions = get_openai_schemas()
         messages = self.make_messages(prompt.strip())
-        return self.get_completion(
+        response = self.get_completion(
             model=model,
             temperature=temperature,
             top_p=top_p,
@@ -115,3 +199,8 @@ class AgentABC(Handler, ABC):
             caching=caching,
             **kwargs,
         )
+        reply = ""
+        for chunk in response:
+            yield chunk
+            reply += chunk
+        self.conversation_history.append({"role": "assistant", "content": reply})
