@@ -4,20 +4,26 @@ from hashlib import md5
 from pathlib import Path
 from typing import Any, no_type_check
 
+from .config import cfg
+
 
 class Cache:
     """
     Decorator class that adds caching functionality to a function.
     """
 
-    def __init__(self, length: int, cache_path: Path) -> None:
+    def __init__(
+        self, length: int | None = None, cache_path: Path | None = None
+    ) -> None:
         """
         Initialize the Cache decorator.
 
         :param length: Integer, maximum number of cache files to keep.
         """
-        self.length = length
-        self.cache_path = cache_path
+        self.length = int(cfg.get("CACHE_LENGTH")) if length is None else length
+        self.cache_path = (
+            Path(cfg.get("CACHE_PATH")) if cache_path is None else cache_path
+        )
         self.cache_path.mkdir(parents=True, exist_ok=True)
 
     def __call__(self, func: Callable[..., Any]) -> Callable[..., Any]:

@@ -59,9 +59,17 @@ def get_function(name: str) -> Callable[..., Any]:
     raise ValueError(f"Function {name} not found")
 
 
+DISABLED_FUNCTIONS = ["execute_python_code"]
+ENABLED_FUNCTIONS = []
+
+
 def get_openai_schemas() -> list[dict[str, Any]]:
     transformed_schemas = []
     for function in functions:
+        if (name := function.openai_schema["name"]) in DISABLED_FUNCTIONS:
+            continue
+        if ENABLED_FUNCTIONS and name not in ENABLED_FUNCTIONS:
+            continue
         schema = {
             "type": "function",
             "function": {

@@ -42,14 +42,14 @@ litellm = [
     "litellm == 1.42.5"
 ]
 dev = [
-    "ruff == 0.0.256",
+    "ruff==0.7.3",
     "pre-commit >= 3.1.1, < 4.0.0",
     "jupyter-console>=6.6.3",
     "pytest>=8.3.3",
     "mypy>=1.13.0",
     "requests-mock[fixture] >= 1.10.0, < 2.0.0",
     "types-requests == 2.28.11.17",
-    "codespell  >= 2.2.5, < 3.0.0"
+    "codespell  >= 2.2.5, < 3.0.0",
 ]
 
 [project.scripts]
@@ -82,7 +82,7 @@ strict = true
 pretty = true
 
 [tool.ruff]
-select = [
+lint.select = [
     "E",  # pycodestyle errors.
     "W",  # pycodestyle warnings.
     "F",  # pyflakes.
@@ -91,7 +91,7 @@ select = [
     "I",  # enable import related rules (e.g. isort)
     "UP", # Enable rules for unused variables, etc.
 ]
-ignore = [
+lint.ignore = [
     "E501",  # line too long, handled by black.
     "C901",  # too complex.
     "B008",  # do not perform function calls in argument defaults.

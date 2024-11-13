@@ -127,7 +127,9 @@ class FileWatcherREPLHandler(ReplHandler, Watcher):
     def notify(self) -> None:
         self.role = self._role
 
-    def __init__(self, files_view: FilesView, *args, model: str = "gpt-4o-mini", **kwargs) -> None:
+    def __init__(
+        self, files_view: FilesView, *args, model: str = "gpt-4o-mini", **kwargs
+    ) -> None:
         """
         Initialize with a custom system prompt containing the files' history.
         """
@@ -161,8 +163,6 @@ class FileWatcherREPLHandler(ReplHandler, Watcher):
             top_p=1.0,
             caching=False,
         )
-
-
 
 
 @dataclass

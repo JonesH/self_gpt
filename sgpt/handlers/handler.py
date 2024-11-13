@@ -92,7 +92,6 @@ class Handler:
         messages: list[dict[str, Any]],
         functions: list[dict[str, str]] | None,
     ) -> Generator[str, None, None]:
-        name = arguments = ""
         is_shell_role = self.role.name == DefaultRoles.SHELL.value
         is_code_role = self.role.name == DefaultRoles.CODE.value
         is_dsc_shell_role = self.role.name == DefaultRoles.DESCRIBE_SHELL.value
@@ -103,6 +102,26 @@ class Handler:
             additional_kwargs["tool_choice"] = "auto"
             additional_kwargs["tools"] = functions
             additional_kwargs["parallel_tool_calls"] = False
+
+        return self.complete(
+            model=model,
+            temperature=temperature,
+            top_p=top_p,
+            messages=messages,
+            functions=functions,
+            **additional_kwargs,
+        )
+
+    def complete(
+        self,
+        model: str,
+        temperature: float,
+        top_p: float,
+        messages: list[dict[str, Any]],
+        functions: list[dict[str, str]] | None,
+        **additional_kwargs,
+    ) -> Generator[str, None, None]:
+        name = arguments = ""
 
         response = completion(
             model=model,

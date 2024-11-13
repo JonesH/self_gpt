@@ -1,4 +1,3 @@
-
 import pytest
 
 from sgpt.filegptd import ChangingFile, FilesView
