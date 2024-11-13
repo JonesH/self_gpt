@@ -59,7 +59,10 @@ def get_function(name: str) -> Callable[..., Any]:
     raise ValueError(f"Function {name} not found")
 
 
-DISABLED_FUNCTIONS = ["execute_python_code"]
+DISABLED_FUNCTIONS = [
+    "execute_python_code",
+    "tavily_search"
+]
 ENABLED_FUNCTIONS = []
 
 

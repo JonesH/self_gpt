@@ -11,16 +11,16 @@ class Function(OpenAISchema):
     """
 
     query: str = Field(..., description="Search query for Tavily.")
-    max_results: int = Field(5, description="Maximum number of results to return.")
+    max_results: int = Field(15, description="Maximum number of results to return.")
 
     class Config:
-        title = "tavily_search"
+        title = "web_search"
 
     @classmethod
     def execute(
         cls,
         query: str,
-        max_results: int = 5,
+        max_results: int = 15,
         api_key: str = os.getenv("TAVILY_API_KEY"),
     ) -> str:
         """
@@ -66,7 +66,7 @@ class Function(OpenAISchema):
             "api_key": api_key,
             "search_depth": "basic",
             "topic": "general",
-            "days": 3,
+            "days": 7,
             "include_answer": False,
             "include_raw_content": False,
             "include_images": False,
