@@ -1,12 +1,10 @@
-from dataclasses import dataclass
-
 from .agent_abc import AgentABC
 from typing import Any
 
 
 class DefaultAgent(AgentABC):
     class Config(AgentABC.Config):
-        model: str = "gpt-4"
+        model: str = "gpt-4o-2024-08-06"
         name: str = "DefaultAgent"
         role: str = "Default Assistant for managing user queries."
         temperature: float = 0.7

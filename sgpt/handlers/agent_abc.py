@@ -27,7 +27,7 @@ additional_kwargs = {}
 
 
 @dataclass
-class AgentABC(Handler, ABC):
+class AgentABC(ABC):
     conversation_history: list[dict[str, Any]] = field(default_factory=list, init=False)
 
     class Config:
@@ -40,13 +40,20 @@ class AgentABC(Handler, ABC):
         caching: bool = False
         tool_choice: str = "auto"
 
+        api_base_url = cfg.get("API_BASE_URL")
+        base_url = None if api_base_url == "default" else api_base_url
+        timeout = int(cfg.get("REQUEST_TIMEOUT"))
+
+        markdown = True
+        code_theme = cfg.get("CODE_THEME")
+        color = cfg.get("DEFAULT_COLOR")
+
     @classmethod
     @property
     def config(cls):
         return cls.Config()
 
     def __post_init__(self) -> None:
-        super().__init__(self.system_role, markdown=True)
         self.conversation_history.append({"role": "system", "content": self.config.role})
 
     @property
@@ -112,12 +119,15 @@ class AgentABC(Handler, ABC):
         """
         return "".join(generator)
 
+    import time
+
     def handle_function_call(
             self,
             messages: list[dict[str, Any]],
             name: str,
             arguments: str,
     ) -> Generator[str, None, None]:
+        # Append the initial function call to messages
         messages.append(
             {
                 "role": "assistant",
@@ -129,23 +139,87 @@ class AgentABC(Handler, ABC):
         if messages and messages[-1]["role"] == "assistant":
             yield "\n"
 
+        # Parse the arguments and prepare the function call
         dict_args = json.loads(arguments)
         joined_args = ", ".join(f'{k}="{v}"' for k, v in dict_args.items())
         yield f"> @FunctionCall `{name}({joined_args})` \n\n"
 
-        # Call the function
+        # Call the function and process the structured output
         result = get_function(name)(**dict_args)
 
-        # Write the function output to the named pipe
-        fifo_path = f"/tmp/sgpt_function_output-{os.getpid()}"
-        os.mkfifo(fifo_path)
-        with open(fifo_path, "w") as fifo:
-            fifo.write(f"Function {name} output:\n{result}\n\n")
+        if isinstance(result, dict):  # Handle structured output
+            if result.get("status") == "error":
+                content = result.get("message", "An unknown error occurred.")
+            elif result.get("status") == "success":
+                file_hash = result.get("file_hash", "")
+                content = f"[File Hash: {file_hash}]\n\n{result.get('content', '')}"
+            else:
+                content = "Unexpected response structure received."
+        else:  # Handle legacy or unstructured output
+            content = str(result)
 
+        with open('/tmp/funout.log', 'w') as f:
+            f.write(f"Function {name} output:\n{content}\n\n")
         # Optionally show a short summary in the main conversation if needed
         yield f"[Function {name} executed, output written to named pipe]\n"
 
-        messages.append({"role": "function", "content": result, "name": name})
+        # Append the final structured response to messages
+        messages.append({"role": "function", "content": content, "name": name})
+
+    def complete(
+            self,
+            model: str,
+            temperature: float,
+            top_p: float,
+            messages: list[dict[str, Any]],
+            functions: list[dict[str, str]] | None,
+            **additional_kwargs,
+    ) -> Generator[str, None, None]:
+        name = arguments = ""
+
+        try:
+            response = completion(
+                model=model,
+                temperature=temperature,
+                top_p=top_p,
+                messages=messages,
+                stream=True,
+                **additional_kwargs,
+            )
+        except Exception as e:
+            import typer
+            typer.secho(str(e), fg=typer.colors.RED)
+            raise
+
+        try:
+            for chunk in response:
+                delta = chunk.choices[0].delta
+
+                # LiteLLM uses dict instead of Pydantic object like OpenAI does.
+                tool_calls = (
+                    delta.get("tool_calls") if use_litellm else delta.tool_calls
+                )
+                if tool_calls:
+                    for tool_call in tool_calls:
+                        if tool_call.function.name:
+                            name = tool_call.function.name
+                        if tool_call.function.arguments:
+                            arguments += tool_call.function.arguments
+                if chunk.choices[0].finish_reason == "tool_calls":
+                    yield from self.handle_function_call(messages, name, arguments)
+                    yield from self.get_completion(
+                        model=model,
+                        temperature=temperature,
+                        top_p=top_p,
+                        messages=messages,
+                        functions=functions,
+                        caching=False,
+                    )
+                    return
+
+                yield delta.content or ""
+        except KeyboardInterrupt:
+            response.close()
 
     @Handler.cache
     def get_completion(

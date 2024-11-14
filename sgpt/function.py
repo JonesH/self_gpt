@@ -64,7 +64,6 @@ DISABLED_FUNCTIONS = [
     "tavily_search"
 ]
 ENABLED_FUNCTIONS = ["execute_shell_command",
-                     "full_text_search",
                      "web_search",
                      "read_file_contents",
                      "apply_file_changes",
