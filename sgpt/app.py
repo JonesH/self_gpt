@@ -162,6 +162,13 @@ def main(
         callback=inst_funcs,
         hidden=True,  # Hiding since should be used only once.
     ),
+    system_role: str = typer.Option(
+        None,
+        "--system-role",
+        "-sr",
+        help="Specify a system role message.",
+        rich_help_panel="Role Options",
+    ),
 ) -> None:
     stdin_passed = not sys.stdin.isatty()
 
@@ -205,6 +212,8 @@ def main(
         prompt = get_edited_prompt()
 
     role_class = (
+        SystemRole(name='Temp', role=system_role)
+        if system_role else
         DefaultRoles.check_get(shell, describe_shell, code)
         if not role
         else SystemRole.get(role)
