@@ -162,7 +162,8 @@ class SystemRole:
     def same_role(self, initial_message: str) -> bool:
         if not initial_message:
             return False
-        return True if f"You are {self.name}" in initial_message else False
+        role = self.role.split("\n", 1)[1]
+        return initial_message.endswith(role)
 
 
 class DefaultRoles(Enum):

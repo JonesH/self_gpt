@@ -211,13 +211,26 @@ def main(
     if editor:
         prompt = get_edited_prompt()
 
+    if role:
+        role_name = role
+    elif repl != 'temp' and system_role:
+        role_name = repl
+    else:
+        role_name = 'Temp'
     role_class = (
-        SystemRole(name='Temp', role=system_role)
+        SystemRole(name=role_name, role=system_role)
         if system_role else
         DefaultRoles.check_get(shell, describe_shell, code)
         if not role
         else SystemRole.get(role)
     )
+    if system_role and role_name != "Temp":
+        try:
+            orig_role_class = SystemRole.get(role_name)
+            role_class = orig_role_class
+        except BadArgumentUsage:
+            role_class._save()
+
 
     function_schemas = (get_openai_schemas() or None) if functions else None
 

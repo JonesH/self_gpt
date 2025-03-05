@@ -118,7 +118,7 @@ class ChatHandler(Handler):
     @classmethod
     def initial_message(cls, chat_id: str) -> str:
         chat_history = cls.chat_session.get_messages(chat_id)
-        return chat_history[0] if chat_history else ""
+        return chat_history[0].removeprefix("system: ") if chat_history else ""
 
     @classmethod
     @option_callback
@@ -151,7 +151,10 @@ class ChatHandler(Handler):
 
     def validate(self) -> None:
         if self.initiated:
-            chat_role_name = self.role.get_role_name(self.initial_message(self.chat_id))
+            if self.role.name:
+                chat_role_name = self.role.name
+            else:
+                chat_role_name = self.role.get_role_name(self.initial_message(self.chat_id)) or self.role.name
             if not chat_role_name:
                 raise BadArgumentUsage(
                     f'Could not determine chat role of "{self.chat_id}"'
