@@ -1,7 +1,10 @@
 import json
+import sys
 from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any
+
+import typer
 
 from ..cache import Cache
 from ..config import cfg
@@ -63,6 +66,31 @@ class Handler:
         name: str,
         arguments: str,
     ) -> Generator[str, None, None]:
+        yield "\n"
+        dict_args = json.loads(arguments)
+        joined_args = ", ".join(f'{k}="{v}"' for k, v in dict_args.items())
+        yield "Are you sure you want to run this function? [y/n]:\n "
+        yield f"> @FunctionCall `{name}({joined_args})` \n\n"
+
+        sys.stdout.flush()
+
+        user_input = typer.prompt("").lower().strip()
+        yield f"{user_input}\n"
+
+        sys.stdout.flush()
+
+        if user_input != "y":
+            yield "Function call aborted by user.\n"
+            # Explicitly inform the LLM about user's decision
+            messages.append(
+                {
+                    "role": "function",
+                    "name": name,
+                    "content": "The user declined to execute this function.",
+                }
+            )
+            return
+
         messages.append(
             {
                 "role": "assistant",
@@ -70,14 +98,6 @@ class Handler:
                 "function_call": {"name": name, "arguments": arguments},
             }
         )
-
-        if messages and messages[-1]["role"] == "assistant":
-            yield "\n"
-
-        dict_args = json.loads(arguments)
-        joined_args = ", ".join(f'{k}="{v}"' for k, v in dict_args.items())
-        yield f"> @FunctionCall `{name}({joined_args})` \n\n"
-
         result = get_function(name)(**dict_args)
         if cfg.get("SHOW_FUNCTIONS_OUTPUT") == "true":
             yield f"```text\n{result}\n```\n"
@@ -148,6 +168,12 @@ class Handler:
                             arguments += tool_call.function.arguments
                 if chunk.choices[0].finish_reason == "tool_calls":
                     yield from self.handle_function_call(messages, name, arguments)
+                    if (
+                        messages[-1]["role"] == "function"
+                        and messages[-1]["content"]
+                        == "The user declined to execute this function."
+                    ):
+                        return
                     yield from self.get_completion(
                         model=model,
                         temperature=temperature,

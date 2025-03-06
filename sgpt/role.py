@@ -10,7 +10,7 @@ from click import BadArgumentUsage
 from distro import name as distro_name
 
 from .config import cfg
-from .utils import option_callback
+from .utils import get_edited_prompt, option_callback
 
 SHELL_ROLE = """Provide only {shell} commands for {os} without any description.
 If there is a lack of details, provide most logical solution.
@@ -40,7 +40,7 @@ If you need to store any data, assume it will be stored in the conversation.
 APPLY MARKDOWN formatting when possible."""
 # Note that output for all roles containing "APPLY MARKDOWN" will be formatted as Markdown.
 
-ROLE_TEMPLATE = "You are {name}\n{role}"
+ROLE_TEMPLATE = "You are {name}.\n{role}"
 
 
 class SystemRole:
@@ -59,9 +59,13 @@ class SystemRole:
         self.role = role
 
     @classmethod
+    def variables(cls) -> dict[str, str]:
+        return {"shell": cls._shell_name(), "os": cls._os_name()}
+
+    @classmethod
     def create_defaults(cls) -> None:
         cls.storage.parent.mkdir(parents=True, exist_ok=True)
-        variables = {"shell": cls._shell_name(), "os": cls._os_name()}
+        variables = cls.variables()
         for default_role in (
             SystemRole("ShellGPT", DEFAULT_ROLE, variables),
             SystemRole("Shell Command Generator", SHELL_ROLE, variables),
@@ -76,12 +80,18 @@ class SystemRole:
         file_path = cls.storage / f"{name}.json"
         if not file_path.exists():
             raise BadArgumentUsage(f'Role "{name}" not found.')
-        return cls(**json.loads(file_path.read_text()))
+        prompt = json.loads(file_path.read_text())
+        return cls(**prompt, variables=cls.variables())
 
     @classmethod
     @option_callback
     def create(cls, name: str) -> None:
-        role = typer.prompt("Enter role description")
+        try:
+            msg = cls.get(name).role
+            typer.echo(f"Role {name} already exists, editing...")
+            role = get_edited_prompt(msg)
+        except BadArgumentUsage:
+            role = get_edited_prompt()
         role = cls(name, role)
         role._save()
 
@@ -148,7 +158,10 @@ class SystemRole:
                 abort=True,
             )
 
-        self.role = ROLE_TEMPLATE.format(name=self.name, role=self.role)
+        template_start = ROLE_TEMPLATE.split("\n", 1)[0].format(name=self.name) + "\n"
+        self.role = ROLE_TEMPLATE.format(
+            name=self.name, role=self.role.removeprefix(template_start).strip()
+        )
         self._file_path.write_text(json.dumps(self.__dict__), encoding="utf-8")
 
     def delete(self) -> None:

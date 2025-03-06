@@ -97,7 +97,7 @@ def main(
     ),
     chat: str = typer.Option(
         None,
-        help="Follow conversation with id, " 'use "temp" for quick session.',
+        help='Follow conversation with id, use "temp" for quick session.',
         rich_help_panel="Chat Options",
     ),
     repl: str = typer.Option(
@@ -213,14 +213,14 @@ def main(
 
     if role:
         role_name = role
-    elif repl != 'temp' and system_role:
+    elif repl != "temp" and system_role:
         role_name = repl
     else:
-        role_name = 'Temp'
+        role_name = "Temp"
     role_class = (
         SystemRole(name=role_name, role=system_role)
-        if system_role else
-        DefaultRoles.check_get(shell, describe_shell, code)
+        if system_role
+        else DefaultRoles.check_get(shell, describe_shell, code)
         if not role
         else SystemRole.get(role)
     )
@@ -230,7 +230,6 @@ def main(
             role_class = orig_role_class
         except BadArgumentUsage:
             role_class._save()
-
 
     function_schemas = (get_openai_schemas() or None) if functions else None
 

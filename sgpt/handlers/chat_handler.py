@@ -154,7 +154,10 @@ class ChatHandler(Handler):
             if self.role.name:
                 chat_role_name = self.role.name
             else:
-                chat_role_name = self.role.get_role_name(self.initial_message(self.chat_id)) or self.role.name
+                chat_role_name = (
+                    self.role.get_role_name(self.initial_message(self.chat_id))
+                    or self.role.name
+                )
             if not chat_role_name:
                 raise BadArgumentUsage(
                     f'Could not determine chat role of "{self.chat_id}"'
